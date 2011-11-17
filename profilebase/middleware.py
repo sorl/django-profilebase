@@ -8,11 +8,10 @@ class ProfileMiddleware(object):
             name = model.__name__.lower()
             session_key = '_%s_id' % name
             pk = request.session.get(session_key)
+            profile = EmptyProfile()
             if pk is not None:
                 try:
-                    setattr(request, name, model.objects.get(is_active=True, pk=pk))
-                    return
+                    profile = model.objects.get(is_active=True, pk=pk)
                 except model.DoesNotExist:
                     request.session.pop(session_key)
-            setattr(request, name, EmptyProfile())
-
+            setattr(request, name, profile)
