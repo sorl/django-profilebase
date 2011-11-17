@@ -55,7 +55,7 @@ class EmptyProfile(object):
 
 class ProfileManager(models.Manager):
     def authenticate(self, login, password):
-        profiles = self.get_query_set().objects.filter(
+        profiles = self.get_query_set().filter(
             Q(is_active=True) &
             (Q(email__iexact=login) | Q(username__iexact=login))
             )
@@ -122,6 +122,10 @@ class ProfileBase(models.Model):
         session_key = '_%s_id' % name
         request.session.pop(session_key, None)
         setattr(request, name, EmptyProfile())
+
+    def login_form(self, **kwargs):
+        from .forms import LoginForm
+        return LoginForm(self._default_manager.authenticate, **kwargs)
 
     class Meta:
         abstract = True

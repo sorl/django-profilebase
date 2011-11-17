@@ -39,9 +39,9 @@ class LoginForm(forms.Form):
         widget=forms.PasswordInput()
         )
 
-    def __init__(self, request, model, **kwargs):
-        self.request = request
-        self.model = model
+    def __init__(self, authenticate, **kwargs):
+        self.authenticate = authenticate
+        self.request = kwargs.pop('request')
         self.profile = None
         super(LoginForm, self).__init__(**kwargs)
 
@@ -49,7 +49,7 @@ class LoginForm(forms.Form):
         login = self.cleaned_data.get('login')
         password = self.cleaned_data.get('password')
         if login and password:
-            self.profile = self.model.objects.authenticate(login, password)
+            self.profile = self.authenticate(login, password)
             if self.profile is None:
                 raise ValidationError(_("Wrong login or password."))
             elif not self.profile.is_active:
