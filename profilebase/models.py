@@ -89,8 +89,8 @@ class ProfileBase(models.Model):
 
     def login(self, request):
         """
-        Persist a profile id and a backend in the request. This way a profile
-        doesn't have to reauthenticate on every request.
+        Persist a profile id in the request. This way a profile doesn't have to
+        reauthenticate on every request.
         """
         name = self.__class__.__name__.lower()
         session_key = '_%s_id' % name

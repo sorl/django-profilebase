@@ -19,6 +19,7 @@ setup(
     url='https://github.com/aino/django-profilebase',
     packages=find_packages(exclude=['tests', 'tests.*']),
     zip_safe=False,
+    install_requires = [ 'django-stringfield>=0.2.3' ],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Web Environment',
