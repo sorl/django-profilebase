@@ -87,21 +87,6 @@ class ProfileBase(models.Model):
         salt, hash_ = map(smart_str, self.password.split('$'))
         return hashlib.sha1(salt + raw_password).hexdigest() == hash_
 
-    @classmethod
-    def authenticate(cls, login, password):
-        profiles = cls._default_manager.filter(
-            Q(is_active=True) &
-            (Q(email__iexact=login) | Q(username__iexact=login))
-            )
-        for profile in profiles:
-            if profile.check_password(password):
-                return profile
-
-    @classmethod
-    def login_form(cls, **kwargs):
-        from .forms import LoginForm
-        return LoginForm(cls.authenticate, **kwargs)
-
     def login(self, request):
         """
         Persist a profile id and a backend in the request. This way a profile
@@ -125,6 +110,21 @@ class ProfileBase(models.Model):
         session_key = '_%s_id' % name
         request.session.pop(session_key, None)
         setattr(request, name, EmptyProfile())
+
+    @classmethod
+    def authenticate(cls, login, password):
+        profiles = cls._default_manager.filter(
+            Q(is_active=True) &
+            (Q(email__iexact=login) | Q(username__iexact=login))
+            )
+        for profile in profiles:
+            if profile.check_password(password):
+                return profile
+
+    @classmethod
+    def login_form(cls, **kwargs):
+        from .forms import LoginForm
+        return LoginForm(cls.authenticate, **kwargs)
 
     class Meta:
         abstract = True
