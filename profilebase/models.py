@@ -53,16 +53,6 @@ class EmptyProfile(object):
         return ''
 
 
-class ProfileManager(models.Manager):
-    def authenticate(self, login, password):
-        profiles = self.get_query_set().filter(
-            Q(is_active=True) &
-            (Q(email__iexact=login) | Q(username__iexact=login))
-            )
-        for profile in profiles:
-            if profile.check_password(password):
-                return profile
-
 class ProfileBase(models.Model):
     __metaclass__ = ProfileBaseMeta
 
@@ -74,8 +64,6 @@ class ProfileBase(models.Model):
     last_login = models.DateTimeField(_('last login'), editable=False)
     created = models.DateTimeField(_('created'), auto_now_add=True, editable=False)
     updated = models.DateTimeField(_('updated'), auto_now=True, editable=False)
-
-    objects = ProfileManager()
 
     def __unicode__(self):
         return self.username or self.email
@@ -98,6 +86,21 @@ class ProfileBase(models.Model):
         raw_password = smart_str(raw_password)
         salt, hash_ = map(smart_str, self.password.split('$'))
         return hashlib.sha1(salt + raw_password).hexdigest() == hash_
+
+    @classmethod
+    def authenticate(cls, login, password):
+        profiles = cls._default_manager.filter(
+            Q(is_active=True) &
+            (Q(email__iexact=login) | Q(username__iexact=login))
+            )
+        for profile in profiles:
+            if profile.check_password(password):
+                return profile
+
+    @classmethod
+    def login_form(cls, **kwargs):
+        from .forms import LoginForm
+        return LoginForm(cls.authenticate, **kwargs)
 
     def login(self, request):
         """
@@ -122,10 +125,6 @@ class ProfileBase(models.Model):
         session_key = '_%s_id' % name
         request.session.pop(session_key, None)
         setattr(request, name, EmptyProfile())
-
-    def login_form(self, **kwargs):
-        from .forms import LoginForm
-        return LoginForm(self._default_manager.authenticate, **kwargs)
 
     class Meta:
         abstract = True
