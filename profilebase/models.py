@@ -120,9 +120,8 @@ class ProfileBase(models.Model):
         """
         name = self.__class__.__name__.lower()
         session_key = '_%s_id' % name
-        request.session.pop(session_key)
-        if getattr(request, name, None):
-            setattr(request, name, EmptyProfile())
+        request.session.pop(session_key, None)
+        setattr(request, name, EmptyProfile())
 
     class Meta:
         abstract = True
