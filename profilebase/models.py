@@ -61,7 +61,7 @@ class ProfileBase(models.Model):
     password = StringField(editable=False)
     is_active = models.BooleanField(_('active'), default=True)
 
-    last_login = models.DateTimeField(_('last login'), editable=False)
+    last_login = models.DateTimeField(_('last login'), null=True, editable=False)
     created = models.DateTimeField(_('created'), auto_now_add=True, editable=False)
     updated = models.DateTimeField(_('updated'), auto_now=True, editable=False)
 
@@ -72,7 +72,7 @@ class ProfileBase(models.Model):
         return True
 
     def set_password(self, raw_password):
-        if raw_password:
+        if not raw_password:
             self.password = '!'
         else:
             raw_password = smart_str(raw_password)

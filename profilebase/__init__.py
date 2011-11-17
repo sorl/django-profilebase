@@ -1,1 +1,1 @@
-from .models import ProfileBase, ProfileMeta
+from .models import ProfileBase, ProfileMeta, EmptyProfile
