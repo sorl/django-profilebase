@@ -57,7 +57,7 @@ class ProfileBase(models.Model):
     __metaclass__ = ProfileBaseMeta
 
     username = StringField(_('username'), unique=True, null=True)
-    email = EmailField(_('email'))
+    email = EmailField(_('email'), unique=True)
     password = StringField(editable=False)
     is_active = models.BooleanField(_('active'), default=True)
 
