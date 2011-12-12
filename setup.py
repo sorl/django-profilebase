@@ -10,7 +10,7 @@ class TestCommand(test):
 
 setup(
     name='django-profilebase',
-    version='0.0.2',
+    version='0.1.0',
     description='Tools for building a custom Profile class with authentication',
     long_description=open('README.rst').read(),
     author='Mikko Hellsing',
@@ -19,7 +19,7 @@ setup(
     url='https://github.com/aino/django-profilebase',
     packages=find_packages(exclude=['tests', 'tests.*']),
     zip_safe=False,
-    install_requires = [ 'django-stringfield>=0.2.3' ],
+    install_requires = [ 'django-stringfield>=0.3.0' ],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Web Environment',
