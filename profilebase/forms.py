@@ -42,6 +42,8 @@ class LoginForm(forms.Form):
     def __init__(self, authenticate, **kwargs):
         self.authenticate = authenticate
         self.request = kwargs.pop('request', None)
+        if self.request and self.request.method != 'POST':
+            self.request.session.set_test_cookie()
         self.profile = None
         super(LoginForm, self).__init__(**kwargs)
 
