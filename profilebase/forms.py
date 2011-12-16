@@ -41,7 +41,7 @@ class LoginForm(forms.Form):
 
     def __init__(self, authenticate, **kwargs):
         self.authenticate = authenticate
-        self.request = kwargs.pop('request')
+        self.request = kwargs.pop('request', None)
         self.profile = None
         super(LoginForm, self).__init__(**kwargs)
 
