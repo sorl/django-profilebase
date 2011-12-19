@@ -101,12 +101,13 @@ class ProfileBase(models.Model):
         ProfileBase.save(self)
         setattr(request, name, self)
 
-    def logout(self, request):
+    @classmethod
+    def logout(cls, request):
         """
         Removes the authenticated profile's id from the request and deletes key
         from their session data.
         """
-        name = self.__class__.__name__.lower()
+        name = cls.__name__.lower()
         session_key = '_%s_id' % name
         request.session.pop(session_key, None)
         setattr(request, name, EmptyProfile())
