@@ -1,11 +1,16 @@
 import datetime
 import hashlib
 import random
+from django.conf import settings
+from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.db import models
 from django.db.models import Q
 from django.db.models.base import ModelBase
 from django.db.models.fields import Field
+from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
 from django.utils.encoding import smart_str
+from django.utils.http import urlquote
 from django.utils.translation import ugettext_lazy as _
 from stringfield import StringField, EmailField
 
@@ -110,6 +115,20 @@ class ProfileBase(models.Model):
         session_key = '_%s_id' % name
         request.session.pop(session_key, None)
         setattr(request, name, EmptyProfile())
+
+    @classmethod
+    def profile_required(cls, view, redirect_field_name=REDIRECT_FIELD_NAME):
+        """Check that a profile for this class is authenticated"""
+        login_url = settings.LOGIN_URL
+        def wrapped(request):
+            name = cls.__name__.lower()
+            profile = getattr(request, name, None)
+            if not(profile and profile.is_authenticated()):
+                path = urlquote(request.get_full_path())
+                redir = login_url, redirect_field_name, path
+                return HttpResponseRedirect('%s?%s=%s' % redir)
+            return view(request)
+        return wrapped
 
     @classmethod
     def authenticate(cls, login, password):
