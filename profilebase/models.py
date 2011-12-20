@@ -121,14 +121,14 @@ class ProfileBase(models.Model):
     def profile_required(cls, view, redirect_field_name=REDIRECT_FIELD_NAME):
         """Check that a profile for this class is authenticated"""
         login_url = settings.LOGIN_URL
-        def wrapped(request):
+        def wrapped(request, *args, **kwargs):
             name = cls.__name__.lower()
             profile = getattr(request, name, None)
             if not(profile and profile.is_authenticated()):
                 path = urlquote(request.get_full_path())
                 redir = login_url, redirect_field_name, path
                 return HttpResponseRedirect('%s?%s=%s' % redir)
-            return view(request)
+            return view(request, *args, **kwargs)
         return wrapped
 
     @classmethod
