@@ -3,12 +3,15 @@ import hashlib
 import random
 from django.conf import settings
 from django.contrib.auth import REDIRECT_FIELD_NAME
+from django.core.cache import cache
+from django.core.mail import send_mail
 from django.db import models
 from django.db.models import Q
 from django.db.models.base import ModelBase
 from django.db.models.fields import Field
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
 from django.utils.http import urlquote
 from django.utils.translation import ugettext_lazy as _
@@ -140,6 +143,30 @@ class ProfileBase(models.Model):
         for profile in profiles:
             if profile.check_password(password):
                 return profile
+
+    @classmethod
+    def make_password_reset_key(cls, code):
+        return 'profilebase.reset.%s.%s' % (cls.__name__.lower(), code)
+
+    @classmethod
+    def get_profile_by_code(cls, code):
+        cache_key = cls.make_password_reset_key(code)
+        profile_id = cache.get(cache_key)
+        try:
+            return cls._default_manager.get(pk=profile_id)
+        except cls.DoesNotExist:
+            return None
+
+    def send_password_reset(self):
+        import uuid
+        code = uuid.uuid4().hex
+        cache_key = self.make_password_reset_key(code)
+        timeout = 60 * 60 * 24 * settings.PASSWORD_RESET_TIMEOUT_DAYS
+        cache.set(cache_key, self.pk, timeout)
+        ctx = { 'code': code, 'profile': self }
+        text = render_to_string('profilebase/password_reset_email.txt', ctx)
+        send_mail('Reset password', text, settings.DEFAULT_FROM_EMAIL,
+            [self.email], fail_silently=False)
 
     @classmethod
     def login_form(cls, **kwargs):
