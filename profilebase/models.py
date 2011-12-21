@@ -136,13 +136,18 @@ class ProfileBase(models.Model):
 
     @classmethod
     def authenticate(cls, login, password):
+        profiles = cls.get_profiles(login)
+        for profile in profiles:
+            if profile.check_password(password):
+                return profile
+
+    @classmethod
+    def get_profiles(cls, login):
         profiles = cls._default_manager.filter(
             Q(is_active=True) &
             (Q(email__iexact=login) | Q(username__iexact=login))
             )
-        for profile in profiles:
-            if profile.check_password(password):
-                return profile
+        return profiles
 
     @classmethod
     def make_password_reset_key(cls, code):
@@ -157,11 +162,10 @@ class ProfileBase(models.Model):
         except cls.DoesNotExist:
             return None
 
-    def send_password_reset(self):
+    def send_password_reset(self, timeout=3600):
         import uuid
         code = uuid.uuid4().hex
         cache_key = self.make_password_reset_key(code)
-        timeout = 60 * 60 * 24 * settings.PASSWORD_RESET_TIMEOUT_DAYS
         cache.set(cache_key, self.pk, timeout)
         ctx = { 'code': code, 'profile': self }
         text = render_to_string('profilebase/password_reset_email.txt', ctx)
@@ -172,6 +176,11 @@ class ProfileBase(models.Model):
     def login_form(cls, **kwargs):
         from .forms import LoginForm
         return LoginForm(cls.authenticate, **kwargs)
+
+    @classmethod
+    def password_reset_form(cls, **kwargs):
+        from .forms import PasswordResetForm
+        return PasswordResetForm(cls, **kwargs)
 
     class Meta:
         abstract = True

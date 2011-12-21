@@ -3,6 +3,29 @@ from django.forms import ValidationError
 from django.utils.translation import ugettext_lazy as _
 
 
+class PasswordResetForm(forms.Form):
+    email = forms.EmailField(
+        label=_(u'Email'),
+        )
+
+    def __init__(self, profile_cls, **kwargs):
+        self.profile_cls = profile_cls
+        self.profiles = None
+        super(PasswordResetForm, self).__init__(**kwargs)
+
+    def clean_email(self):
+        data = self.cleaned_data
+        email = data['email']
+        self.profiles = self.profile_cls.get_profiles(email)
+        if not self.profiles.exists():
+            raise forms.ValidationError(_(u'No account with that email'))
+        return data
+
+    def save(self, *kwargs):
+        for profile in self.profiles:
+            profile.send_password_reset()
+
+
 class NewPasswordForm(forms.Form):
     password = forms.CharField(
         label=_(u'Password'),
