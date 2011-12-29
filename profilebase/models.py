@@ -1,16 +1,14 @@
 import datetime
 import hashlib
 import random
+from .utils import uncamel
 from django.conf import settings
-from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import models
-from django.db.models import Q
 from django.db.models.base import ModelBase
 from django.db.models.fields import Field
 from django.http import HttpResponseRedirect
-from django.shortcuts import redirect
 from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
 from django.utils.http import urlquote
@@ -46,6 +44,7 @@ class ProfileMeta(ProfileBaseMeta):
             if k not in attrs:
                 attrs[k] = cls.base_fields[k]
         model = ModelBase.__new__(cls, name, bases, attrs)
+        model.__namelow__ = uncamel(model.__name__)
         _profiles.append(model)
         return model
 
@@ -64,7 +63,6 @@ class EmptyProfile(object):
 class ProfileBase(models.Model):
     __metaclass__ = ProfileBaseMeta
 
-    username = StringField(_('username'), unique=True, null=True, blank=True)
     email = EmailField(_('email'), unique=True)
     password = StringField(editable=False)
     is_active = models.BooleanField(_('active'), default=True)
@@ -73,8 +71,11 @@ class ProfileBase(models.Model):
     created = models.DateTimeField(_('created'), auto_now_add=True, editable=False)
     updated = models.DateTimeField(_('updated'), auto_now=True, editable=False)
 
+    def login_url(self, next_=''):
+        return '/login/?next=%s' % next_
+
     def __unicode__(self):
-        return self.username or self.email
+        return self.email
 
     def is_authenticated(self):
         return True
@@ -100,14 +101,13 @@ class ProfileBase(models.Model):
         Persist a profile id in the request. This way a profile doesn't have to
         reauthenticate on every request.
         """
-        name = self.__class__.__name__.lower()
-        session_key = '_%s_id' % name
+        session_key = '_%s_id' % self.__namelow__
         request.session.pop(session_key, None)
         request.session.cycle_key()
         request.session[session_key] = self.pk
         self.last_login = datetime.datetime.now()
         ProfileBase.save(self)
-        setattr(request, name, self)
+        setattr(request, self.__namelow__, self)
 
     @classmethod
     def logout(cls, request):
@@ -115,22 +115,20 @@ class ProfileBase(models.Model):
         Removes the authenticated profile's id from the request and deletes key
         from their session data.
         """
-        name = cls.__name__.lower()
-        session_key = '_%s_id' % name
+        session_key = '_%s_id' % cls.__namelow__
         request.session.pop(session_key, None)
-        setattr(request, name, EmptyProfile())
+        setattr(request, cls.__namelow__, EmptyProfile())
 
     @classmethod
-    def profile_required(cls, view, redirect_field_name=REDIRECT_FIELD_NAME):
-        """Check that a profile for this class is authenticated"""
-        login_url = settings.LOGIN_URL
+    def profile_required(cls, view):
+        """
+        Check that a profile for this class is authenticated
+        """
         def wrapped(request, *args, **kwargs):
-            name = cls.__name__.lower()
-            profile = getattr(request, name, None)
-            if not(profile and profile.is_authenticated()):
+            profile = getattr(request, cls.__namelow__, None)
+            if not profile.is_authenticated():
                 path = urlquote(request.get_full_path())
-                redir = login_url, redirect_field_name, path
-                return HttpResponseRedirect('%s?%s=%s' % redir)
+                return HttpResponseRedirect(cls.login_url(path))
             return view(request, *args, **kwargs)
         return wrapped
 
@@ -144,14 +142,13 @@ class ProfileBase(models.Model):
     @classmethod
     def get_profiles(cls, login):
         profiles = cls._default_manager.filter(
-            Q(is_active=True) &
-            (Q(email__iexact=login) | Q(username__iexact=login))
+            is_active=True, email__iexact=login
             )
         return profiles
 
     @classmethod
     def make_password_reset_key(cls, code):
-        return 'profilebase.reset.%s.%s' % (cls.__name__.lower(), code)
+        return 'profilebase.reset.%s.%s' % (cls.__namelow__, code)
 
     @classmethod
     def get_profile_by_code(cls, code):
