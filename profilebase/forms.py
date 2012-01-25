@@ -4,26 +4,18 @@ from django.utils.translation import ugettext_lazy as _
 
 
 class PasswordResetForm(forms.Form):
-    email = forms.EmailField(
-        label=_(u'Email'),
-        )
+    login = forms.CharField(label=_(u'Login'))
 
-    def __init__(self, profile_cls, **kwargs):
-        self.profile_cls = profile_cls
-        self.profiles = None
+    def __init__(self, get_profiles, **kwargs):
+        self.get_profiles = get_profiles
         super(PasswordResetForm, self).__init__(**kwargs)
 
-    def clean_email(self):
-        data = self.cleaned_data
-        email = data['email']
-        self.profiles = self.profile_cls.get_profiles(email)
-        if not self.profiles.exists():
-            raise forms.ValidationError(_(u'No account with that email'))
-        return data
-
-    def save(self, *kwargs):
-        for profile in self.profiles:
-            profile.send_password_reset()
+    def clean(self):
+        login = self.cleaned_data.get('login')
+        for profile in self.get_profiles(login):
+            if profile.is_active:
+                profile.send_password_reset()
+        return self.cleaned_data
 
 
 class NewPasswordForm(forms.Form):
@@ -40,6 +32,10 @@ class NewPasswordForm(forms.Form):
         widget=forms.PasswordInput(),
         )
 
+    def __init__(self, profile, **kwargs):
+        self.profile = profile
+        super(NewPasswordForm, self).__init__(**kwargs)
+
     def clean(self):
         password = self.cleaned_data.get('password')
         confirm_password = self.cleaned_data.get('confirm_password')
@@ -47,6 +43,12 @@ class NewPasswordForm(forms.Form):
             if password != confirm_password:
                 raise ValidationError(_(u'Password do not match'))
         return self.cleaned_data
+
+    def save(self, commit=True):
+        self.profile.set_password(self.cleaned_data['password'])
+        if commit:
+            self.profile.save()
+        return self.profile
 
 
 class LoginForm(forms.Form):

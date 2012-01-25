@@ -1,10 +1,11 @@
 import datetime
 import hashlib
 import random
+import uuid
 from .utils import uncamel
 from django.conf import settings
 from django.core.cache import cache
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.db import models
 from django.db.models.base import ModelBase
 from django.db.models.fields import Field
@@ -13,9 +14,12 @@ from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
 from django.utils.http import urlquote
 from django.utils.translation import ugettext_lazy as _
+from functools import wraps
 from stringfield import StringField, EmailField
 
 
+RESET_TIMEOUT = 3600 * 24
+CACHE_KEY = 'password.reset.%s.%s'
 _profiles = []
 
 
@@ -71,9 +75,6 @@ class ProfileBase(models.Model):
     created = models.DateTimeField(_('created'), auto_now_add=True, editable=False)
     updated = models.DateTimeField(_('updated'), auto_now=True, editable=False)
 
-    def login_url(self, next_=''):
-        return '/login/?next=%s' % next_
-
     def __unicode__(self):
         return self.email
 
@@ -109,6 +110,23 @@ class ProfileBase(models.Model):
         ProfileBase.save(self)
         setattr(request, self.__namelow__, self)
 
+    def send_password_reset(self, timeout=RESET_TIMEOUT):
+        hash_ = uuid.uuid1().hex
+        cache.set(self.get_reset_key(hash_), self.pk, timeout)
+        body = render_to_string('profilebase/password_reset_email.txt', {
+            'profile': self,
+            'hash': hash_,
+            'domain': getattr(settings, 'SITE_DOMAIN', '')
+        })
+        msg = EmailMessage(_('Password reset'), body,
+            settings.DEFAULT_FROM_EMAIL, [self.email]
+            )
+        msg.send()
+
+    @classmethod
+    def login_url(cls, next_=''):
+        return '/login/?next=%s' % next_
+
     @classmethod
     def logout(cls, request):
         """
@@ -120,54 +138,44 @@ class ProfileBase(models.Model):
         setattr(request, cls.__namelow__, EmptyProfile())
 
     @classmethod
-    def profile_required(cls, view):
+    def profile_required(cls, f):
         """
         Check that a profile for this class is authenticated
         """
-        def wrapped(request, *args, **kwargs):
-            profile = getattr(request, cls.__namelow__, None)
-            if not profile.is_authenticated():
+        @wraps
+        def wrapper(request, *args, **kwargs):
+            profile = getattr(request, cls.__namelow__)
+            if not (profile.is_authenticated() and profile.is_active):
                 path = urlquote(request.get_full_path())
                 return HttpResponseRedirect(cls.login_url(path))
-            return view(request, *args, **kwargs)
-        return wrapped
+            return f(request, *args, **kwargs)
+        return wrapper
 
     @classmethod
     def authenticate(cls, login, password):
-        profiles = cls.get_profiles(login)
-        for profile in profiles:
+        for profile in cls.get_profiles(login):
             if profile.check_password(password):
                 return profile
 
     @classmethod
     def get_profiles(cls, login):
-        profiles = cls._default_manager.filter(
-            is_active=True, email__iexact=login
-            )
-        return profiles
+        """
+        Mostly a helper method for :meth:authenticate
+        """
+        return cls._default_manager.filter(email__iexact=login.strip())
 
     @classmethod
-    def make_password_reset_key(cls, code):
-        return 'profilebase.reset.%s.%s' % (cls.__namelow__, code)
+    def get_reset_key(cls, hash_):
+        return 'password.reset.%s.%s' % (cls.__namelow__, hash_)
 
     @classmethod
-    def get_profile_by_code(cls, code):
-        cache_key = cls.make_password_reset_key(code)
-        profile_id = cache.get(cache_key)
-        try:
-            return cls._default_manager.get(pk=profile_id)
-        except cls.DoesNotExist:
-            return None
-
-    def send_password_reset(self, timeout=3600):
-        import uuid
-        code = uuid.uuid4().hex
-        cache_key = self.make_password_reset_key(code)
-        cache.set(cache_key, self.pk, timeout)
-        ctx = { 'code': code, 'profile': self }
-        text = render_to_string('profilebase/password_reset_email.txt', ctx)
-        send_mail('Reset password', text, settings.DEFAULT_FROM_EMAIL,
-            [self.email], fail_silently=False)
+    def get_profile_by_hash(cls, hash_):
+        pk = cache.get(cls.get_reset_key(hash_))
+        if pk is not None:
+            try:
+                return cls.get_profiles().get(pk=pk)
+            except cls.DoesNotExist:
+                pass
 
     @classmethod
     def login_form(cls, **kwargs):
@@ -177,7 +185,11 @@ class ProfileBase(models.Model):
     @classmethod
     def password_reset_form(cls, **kwargs):
         from .forms import PasswordResetForm
-        return PasswordResetForm(cls, **kwargs)
+        return PasswordResetForm(cls.get_profiles, **kwargs)
+
+    def new_password_form(self, **kwargs):
+        from .forms import NewPasswordForm
+        return NewPasswordForm(self, **kwargs)
 
     class Meta:
         abstract = True
