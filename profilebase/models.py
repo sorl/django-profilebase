@@ -142,7 +142,7 @@ class ProfileBase(models.Model):
         """
         Check that a profile for this class is authenticated
         """
-        @wraps
+        @wraps(f)
         def wrapper(request, *args, **kwargs):
             profile = getattr(request, cls.__namelow__)
             if not (profile.is_authenticated() and profile.is_active):
