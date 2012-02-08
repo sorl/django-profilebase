@@ -10,7 +10,7 @@ class TestCommand(test):
 
 setup(
     name='django-profilebase',
-    version='0.2.0',
+    version='0.2.1',
     description='Tools for building a custom Profile class with authentication',
     long_description=open('README.rst').read(),
     author='Mikko Hellsing',

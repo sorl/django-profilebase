@@ -49,7 +49,8 @@ class ProfileMeta(ProfileBaseMeta):
                 attrs[k] = cls.base_fields[k]
         model = ModelBase.__new__(cls, name, bases, attrs)
         model.__namelow__ = uncamel(model.__name__)
-        _profiles.append(model)
+        if model not in _profiles:
+            _profiles.append(model)
         return model
 
 
