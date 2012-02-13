@@ -6,6 +6,7 @@ from .utils import uncamel
 from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import EmailMessage
+from django.core.urlresolvers import reverse, NoReverseMatch
 from django.db import models
 from django.db.models.base import ModelBase
 from django.db.models.fields import Field
@@ -126,7 +127,11 @@ class ProfileBase(models.Model):
 
     @classmethod
     def login_url(cls, next_=''):
-        return '/login/?next=%s' % next_
+        try:
+            url = reverse('login')
+        except NoReverseMatch:
+            url = '/login'
+        return '%s?next=%s' % (url, next_)
 
     @classmethod
     def logout(cls, request):
