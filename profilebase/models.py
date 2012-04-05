@@ -164,11 +164,14 @@ class ProfileBase(models.Model):
                 return profile
 
     @classmethod
-    def get_profiles(cls, login):
+    def get_profiles(cls, login=None):
         """
         Mostly a helper method for :meth:authenticate
         """
-        return cls._default_manager.filter(email__iexact=login.strip())
+        qs = cls._default_manager.all()
+        if login:
+            qs = qs.filter(email__iexact=login.strip())
+        return qs
 
     @classmethod
     def get_reset_key(cls, hash_):
