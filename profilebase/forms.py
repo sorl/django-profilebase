@@ -12,9 +12,10 @@ class PasswordResetForm(forms.Form):
 
     def clean(self):
         login = self.cleaned_data.get('login')
-        for profile in self.get_profiles(login):
-            if profile.is_active:
-                profile.send_password_reset()
+        if login:
+            for profile in self.get_profiles(login):
+                if profile.is_active:
+                    profile.send_password_reset()
         return self.cleaned_data
 
 
